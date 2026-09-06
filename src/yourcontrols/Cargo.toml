@@ -8,6 +8,11 @@ edition = "2018"
 [[bin]]
 name = "YourControls"
 path = "src/main.rs"
+required-features = ["gui"]
+
+[[bin]]
+name = "YourControlsCLI"
+path = "src/cli_main.rs"
 
 [dependencies]
 attohttpc = { version = "0.28", features = ["json"] }
@@ -35,14 +40,15 @@ simplelog = "0.12"
 spin_sleep = "1.1"
 tungstenite = "0.23"
 util = "0.1"
-web-view = "0.7.3"
+web-view = { version = "0.7.3", optional = true }
 zip = "2.1"
-
 yourcontrols-net = { path = "../yourcontrols-net" }
 yourcontrols-types = { path = "../yourcontrols-types" }
 
 [features]
-edge = ["web-view/edge"]
+default = ["gui"]
+gui = ["web-view"]
+edge = ["gui", "web-view/edge"]
 
 [build-dependencies]
 winres = "0.1"
