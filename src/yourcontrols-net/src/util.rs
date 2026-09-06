@@ -2,7 +2,6 @@ use crossbeam_channel::{Receiver, Sender};
 use dns_lookup::lookup_host;
 use dotenv_codegen::dotenv;
 use laminar::Metrics;
-use socket2::{Domain, Socket, Type};
 use std::{
     net::{IpAddr, SocketAddr, SocketAddrV4, SocketAddrV6, UdpSocket},
     time::{Duration, SystemTime},
@@ -14,7 +13,6 @@ use crate::messages::Payloads;
 pub const MAX_PUNCH_RETRIES: u8 = 5;
 pub const LOOP_SLEEP_TIME_MS: u64 = 5;
 pub const HEARTBEAT_INTERVAL_MANUAL_SECS: f32 = 0.5;
-
 const HEARTBEAT_INTERVAL_MS: u64 = 1000;
 const RENDEZVOUS_SERVER_HOSTNAME: &str = dotenv!("SERVER_HOSTNAME");
 const RENDEZVOUS_PORT: &str = dotenv!("SERVER_PORT");
@@ -24,7 +22,6 @@ pub type ClientSender = Sender<(Payloads, Option<String>)>;
 pub type ClientReceiver = Receiver<(Payloads, Option<String>)>;
 pub type ServerSender = Sender<ReceiveMessage>;
 pub type ServerReceiver = Receiver<ReceiveMessage>;
-
 pub fn get_bind_address(is_ipv6: bool, port: Option<u16>) -> SocketAddr {
     let bind_string = format!(
         "{}:{}",
@@ -40,7 +37,6 @@ pub fn match_ip_address_to_socket_addr(ip: IpAddr, port: u16) -> SocketAddr {
         IpAddr::V6(ip) => SocketAddr::V6(SocketAddrV6::new(ip, port, 0, 0)),
     }
 }
-
 pub fn get_addr_from_hostname_and_port(
     is_ipv6: bool,
     hostname: &str,
@@ -54,7 +50,6 @@ pub fn get_addr_from_hostname_and_port(
     }
     Err(Error::MismatchingIpVersion)
 }
-
 pub fn get_rendezvous_server(is_ipv6: bool) -> Result<SocketAddr, Error> {
     get_addr_from_hostname_and_port(
         is_ipv6,
@@ -62,7 +57,6 @@ pub fn get_rendezvous_server(is_ipv6: bool) -> Result<SocketAddr, Error> {
         RENDEZVOUS_PORT.parse().unwrap(),
     )
 }
-
 pub fn get_socket_config(timeout: u64) -> laminar::Config {
     laminar::Config {
         heartbeat_interval: Some(Duration::from_millis(HEARTBEAT_INTERVAL_MS)),
@@ -74,18 +68,12 @@ pub fn get_socket_config(timeout: u64) -> laminar::Config {
     }
 }
 
+// Direct-host IPv4 fix:
+// Upstream used an AF_INET6 dual-stack socket here. On Windows, forwarded
+// IPv4 UDP packets can fail to match that transport endpoint. Bind a real
+// AF_INET/IPv4 socket instead.
 pub fn get_socket_duplex(port: u16) -> UdpSocket {
-    let socket = Socket::new(Domain::IPV6, Type::DGRAM, None).unwrap();
-    socket.set_only_v6(false).ok();
-    socket
-        .bind(
-            &format!("[::]:{}", port)
-                .parse::<SocketAddr>()
-                .unwrap()
-                .into(),
-        )
-        .unwrap();
-    socket.into()
+    UdpSocket::bind(format!("0.0.0.0:{}", port)).unwrap()
 }
 
 pub fn get_seconds() -> f64 {
@@ -94,7 +82,6 @@ pub fn get_seconds() -> f64 {
         .unwrap()
         .as_secs_f64()
 }
-
 pub fn get_local_endpoints_with_port(is_ipv6: bool, port: u16) -> Option<SocketAddr> {
     get_local_ip_address(is_ipv6).map(|x| SocketAddr::new(x, port))
 }
@@ -104,7 +91,6 @@ pub fn get_local_ip_address(is_ipv6: bool) -> Option<IpAddr> {
         Ok(s) => s,
         Err(_) => return None,
     };
-
     match socket.connect(if is_ipv6 {
         "[2001:4860:4860::8888]:80"
     } else {
@@ -119,7 +105,6 @@ pub fn get_local_ip_address(is_ipv6: bool) -> Option<IpAddr> {
         Err(_) => None,
     }
 }
-
 pub fn is_actually_ipv4(addr: SocketAddr) -> bool {
     match addr {
         SocketAddr::V4(_) => true,
@@ -134,7 +119,6 @@ pub enum Event {
     ConnectionLost(String),
     Metrics(Metrics),
 }
-
 #[derive(Debug)]
 pub enum ReceiveMessage {
     Payload(Payloads),
@@ -150,7 +134,6 @@ pub trait TransferClient {
     fn get_session_id(&self) -> Option<String>;
     // Application specific functions
     fn stop(&mut self, reason: String);
-
     fn update(&self, data: AllNeedSync, is_unreliable: bool) {
         self.get_transmitter()
             .try_send((
@@ -164,11 +147,9 @@ pub trait TransferClient {
             ))
             .ok();
     }
-
     fn get_next_message(&self) -> Result<ReceiveMessage, crossbeam_channel::TryRecvError> {
         return self.get_receiver().try_recv();
     }
-
     fn transfer_control(&self, target: String) {
         let message = Payloads::TransferControl {
             from: self.get_server_name().to_string(),
@@ -181,7 +162,6 @@ pub trait TransferClient {
             .try_send(ReceiveMessage::Payload(message))
             .ok();
     }
-
     fn take_control(&self, from: String) {
         let message = Payloads::TransferControl {
             from,
@@ -195,7 +175,6 @@ pub trait TransferClient {
             .try_send(ReceiveMessage::Payload(message))
             .ok();
     }
-
     fn set_self_observer(&self) {
         self.get_transmitter()
             .try_send((
@@ -206,7 +185,6 @@ pub trait TransferClient {
             ))
             .ok();
     }
-
     fn set_observer(&self, target: String, is_observer: bool) {
         self.get_transmitter()
             .try_send((
@@ -225,7 +203,6 @@ pub trait TransferClient {
             .try_send((Payloads::Ready, None))
             .ok();
     }
-
     fn send_definitions(&self, bytes: Box<[u8]>, target: String) {
         self.get_transmitter()
             .try_send((Payloads::AircraftDefinition { bytes }, Some(target)))
