@@ -34,7 +34,7 @@ jobs:
           @"
           SERVER_HOSTNAME=127.0.0.1
           SERVER_PORT=25071
-          "@ | Set-Content -Path src/yourcontrols-net/.env
+          "@ | Set-Content -Path .env
 
       - name: Build CLI
         shell: pwsh
