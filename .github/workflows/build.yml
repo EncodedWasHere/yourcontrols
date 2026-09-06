@@ -1,47 +1,72 @@
-name: Build
-on: [workflow_dispatch]
+name: Build YourControls CLI
+
+on:
+  workflow_dispatch:
+
 jobs:
-  release:
-    environment: Production
+  build:
     runs-on: windows-latest
+
     steps:
-      - name: Cache LLVM and Clang
-        id: cache-llvm
-        uses: actions/cache@v2
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Install Rust stable
+        uses: dtolnay/rust-toolchain@stable
         with:
-          path: |
-            C:/Program Files/LLVM
-            ./llvm
-          key: llvm-11
-      - name: Install LLVM and Clang
-        uses: KyleMayes/install-llvm-action@v1
+          targets: x86_64-pc-windows-msvc
+
+      - name: Install LLVM
+        uses: KyleMayes/install-llvm-action@v2
         with:
-          version: "11.0"
-          cached: ${{ steps.cache-llvm.outputs.cache-hit }}
-      - name: "Install Python"
-        uses: actions/setup-python@v4
+          version: "19.1.7"
+
+      - name: Show tool versions
+        shell: pwsh
+        run: |
+          rustc --version
+          cargo --version
+          clang --version
+
+      - name: Build CLI
+        shell: pwsh
+        run: |
+          cargo build `
+            -p yourcontrols `
+            --release `
+            --no-default-features `
+            --bin YourControlsCLI `
+            --target x86_64-pc-windows-msvc
+
+      - name: Package
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path out | Out-Null
+
+          Copy-Item `
+            target/x86_64-pc-windows-msvc/release/YourControlsCLI.exe `
+            out/YourControlsCLI.exe
+
+          if (Test-Path SimConnect.dll) {
+            Copy-Item SimConnect.dll out/SimConnect.dll
+          }
+
+          if (Test-Path assets) {
+            Copy-Item assets out/assets -Recurse
+          }
+
+          if (Test-Path definitions) {
+            Copy-Item definitions out/definitions -Recurse
+          }
+
+          Compress-Archive `
+            -Path out/* `
+            -DestinationPath YourControlsCLI.zip `
+            -Force
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v7
         with:
-          python-version: '3.10' 
-      - name: "Install Rust"
-        uses: actions-rs/toolchain@v1
-        with:
-          toolchain: stable
-      - name: "Cache cargo crates"
-        uses: Swatinem/rust-cache@v2
-      - name: "Checkout repo"
-        uses: actions/checkout@v3
-      - name: "Build executable"
-        uses: actions-rs/cargo@v1
-        env:
-          SERVER_HOSTNAME: ${{ secrets.SERVER_HOSTNAME }}
-          SERVER_PORT: ${{ secrets.SERVER_PORT }}
-        with:
-          command: build
-          args: --release --all-features
-      - name: Zip files
-        run: python scripts/build.py
-      - name: Upload
-        uses: actions/upload-artifact@v3.1.1
-        with:
-          name: YourControls
-          path: "scripts/out/YourControls.zip"
+          name: YourControlsCLI-Windows
+          path: YourControlsCLI.zip
+          if-no-files-found: error
