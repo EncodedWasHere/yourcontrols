@@ -7,10 +7,6 @@ jobs:
   build:
     runs-on: windows-latest
 
-    env:
-      SERVER_HOSTNAME: "127.0.0.1"
-      SERVER_PORT: "25071"
-
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -31,6 +27,14 @@ jobs:
           rustc --version
           cargo --version
           clang --version
+
+      - name: Create build .env
+        shell: pwsh
+        run: |
+          @"
+          SERVER_HOSTNAME=127.0.0.1
+          SERVER_PORT=25071
+          "@ | Set-Content -Path src/yourcontrols-net/.env
 
       - name: Build CLI
         shell: pwsh
