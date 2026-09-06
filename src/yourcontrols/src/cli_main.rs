@@ -4,29 +4,17 @@
 // Reuses the existing simulator, networking, sync and definition modules,
 // but replaces the legacy web-view frontend with terminal output.
 
-#[path = "clientmanager.rs"]
 mod clientmanager;
-#[path = "corrector.rs"]
 mod corrector;
-#[path = "definitions.rs"]
 mod definitions;
-#[path = "emulator.rs"]
 mod emulator;
-#[path = "paths.rs"]
 mod paths;
-#[path = "program.rs"]
 mod program;
-#[path = "simconfig.rs"]
 mod simconfig;
-#[path = "sync.rs"]
 mod sync;
-#[path = "syncdefs.rs"]
 mod syncdefs;
-#[path = "update.rs"]
 mod update;
-#[path = "util.rs"]
 mod util;
-#[path = "varreader.rs"]
 mod varreader;
 
 mod app {
